@@ -18,8 +18,11 @@ final class PathView extends View {
     private final Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint infoPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
-    PathView(Context c) {
+    private final Prefs prefs;
+
+    PathView(Context c, Prefs prefs) {
         super(c);
+        this.prefs = prefs;
         float d = c.getResources().getDisplayMetrics().density;
         line.setStyle(Paint.Style.STROKE);
         line.setStrokeCap(Paint.Cap.ROUND);
@@ -64,6 +67,11 @@ final class PathView extends View {
             cv.drawText(info, x, y, infoPaint);
         }
         if (item == null || geom == null) return;
+        float op = prefs.opacity() / 100f;
+        line.setAlpha(Math.round(0xE6 * op));
+        dot.setAlpha(Math.round(0xF0 * op));
+        ring.setAlpha(Math.round(0xFF * op));
+        txt.setAlpha(Math.round(0xFF * op));
         int[] p = item.path;
         Path path = new Path();
         float r = (float) (Math.min(geom.cw, geom.ch) * 0.30);

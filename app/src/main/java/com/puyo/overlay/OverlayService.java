@@ -75,6 +75,7 @@ public class OverlayService extends Service {
     private List<int[]> lastChance;
     private int lastNRead;
     private TextView nLabel;
+    private android.content.SharedPreferences.OnSharedPreferenceChangeListener prefListener;
 
     @Override
     public IBinder onBind(Intent i) { return null; }
@@ -312,7 +313,7 @@ public class OverlayService extends Service {
     /* ------------------------------------------------------------ 오버레이 UI */
     private void setupOverlay() {
         int type = Build.VERSION.SDK_INT >= 26 ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : WindowManager.LayoutParams.TYPE_PHONE;
-        pathView = new PathView(this);
+        pathView = new PathView(this, prefs);
         WindowManager.LayoutParams lp = new WindowManager.LayoutParams(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT, type,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
                         | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
@@ -323,11 +324,20 @@ public class OverlayService extends Service {
 
         float d = getResources().getDisplayMetrics().density;
         panel = new LinearLayout(this);
-        panel.setOrientation(LinearLayout.HORIZONTAL);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout row1 = new LinearLayout(this);
+        row1.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout row2 = new LinearLayout(this);
+        row2.setOrientation(LinearLayout.HORIZONTAL);
+        row2.setGravity(Gravity.CENTER);
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(0xDD202124);
         bg.setCornerRadius(18 * d);
         panel.setBackground(bg);
+        prefListener = new android.content.SharedPreferences.OnSharedPreferenceChangeListener() {
+            public void onSharedPreferenceChanged(android.content.SharedPreferences sp, String key) { if (pathView != null) pathView.postInvalidate(); }
+        };
+        prefs.sp.registerOnSharedPreferenceChangeListener(prefListener);
         panel.setPadding((int) (4 * d), (int) (2 * d), (int) (4 * d), (int) (2 * d));
 
         TextView grip = mkBtn("⠿");
@@ -339,14 +349,17 @@ public class OverlayService extends Service {
         btnNext = mkBtn("다음안");
         btnMode = mkBtn("");
         TextView btnClose = mkBtn("✕");
-        panel.addView(grip);
-        panel.addView(btnMinus);
-        panel.addView(nLabel);
-        panel.addView(btnPlus);
-        panel.addView(btnAnalyze);
-        panel.addView(btnNext);
-        panel.addView(btnMode);
-        panel.addView(btnClose);
+        row1.addView(grip);
+        row1.addView(btnMinus);
+        row1.addView(nLabel);
+        row1.addView(btnPlus);
+        row1.addView(btnAnalyze);
+        row1.addView(btnNext);
+        row1.addView(btnMode);
+        row1.addView(btnClose);
+        panel.addView(row1);
+        buildDeckChips(row2);
+        panel.addView(row2);
 
         btnMinus.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { changeN(-1); } });
         btnPlus.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { changeN(1); } });
@@ -403,6 +416,49 @@ public class OverlayService extends Service {
         prefs.setAutoN(false);
         prefs.setManualN(cur + d);
         refreshN();
+        replanAsync();
+    }
+
+    private static final int[] DECK_COL = {0xFFFF5252, 0xFF448AFF, 0xFF4CAF50, 0xFFFFD740, 0xFFB388FF};
+    private final TextView[] chips = new TextView[5];
+
+    private void buildDeckChips(LinearLayout row) {
+        float d = getResources().getDisplayMetrics().density;
+        TextView lab = mkBtn("속성");
+        lab.setTextSize(12);
+        row.addView(lab);
+        for (int i = 0; i < 5; i++) {
+            final int bit = 1 << i;
+            TextView c = mkBtn("●");
+            c.setTextColor(DECK_COL[i]);
+            c.setTextSize(22);
+            c.setPadding((int) (9 * d), (int) (2 * d), (int) (9 * d), (int) (2 * d));
+            c.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) { toggleDeck(bit); }
+            });
+            chips[i] = c;
+            row.addView(c);
+        }
+        refreshChips();
+    }
+
+    /** 덱 색 토글 (아무것도 안 고르면 전부 같은 가치). 바꾸면 마지막 보드를 다시 계산. */
+    private void toggleDeck(int bit) {
+        int m = prefs.deck();
+        prefs.setDeck((m & bit) != 0 ? (m & ~bit) : (m | bit));
+        refreshChips();
+        replanAsync();
+    }
+
+    private void refreshChips() {
+        int m = prefs.deck();
+        for (int i = 0; i < 5; i++) {
+            chips[i].setAlpha(m == 0 ? 0.7f : ((m & (1 << i)) != 0 ? 1f : 0.25f));
+            chips[i].setText((m & (1 << i)) != 0 ? "◉" : "●");
+        }
+    }
+
+    private void replanAsync() {
         if (lastBoard != null && !busy) {
             busy = true;
             work.post(new Runnable() {
@@ -444,6 +500,7 @@ public class OverlayService extends Service {
     @Override
     public void onDestroy() {
         running = false;
+        if (prefs != null && prefListener != null) prefs.sp.unregisterOnSharedPreferenceChangeListener(prefListener);
         if (ui != null) ui.removeCallbacksAndMessages(null);
         try { if (pathView != null) wm.removeView(pathView); } catch (Exception ignore) { }
         try { if (panel != null) wm.removeView(panel); } catch (Exception ignore) { }

@@ -25,6 +25,10 @@ final class Prefs {
     int deck() { return sp.getInt("deck", 0); }
     void setDeck(int m) { sp.edit().putInt("deck", m).apply(); }
 
+    /** 경로 오버레이 불투명도 20~100 (%) */
+    int opacity() { return sp.getInt("opacity", 65); }
+    void setOpacity(int v) { sp.edit().putInt("opacity", Math.max(20, Math.min(100, v))).apply(); }
+
     float mainW() { return 3f; }
     float otherW() { return 0.4f; }
 }

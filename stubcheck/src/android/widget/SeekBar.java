@@ -1,0 +1,2 @@
+package android.widget;
+public class SeekBar extends android.view.View { public SeekBar(android.content.Context c){super(c);} public interface OnSeekBarChangeListener { void onProgressChanged(SeekBar b,int p,boolean u); void onStartTrackingTouch(SeekBar b); void onStopTrackingTouch(SeekBar b); } public void setMax(int m){} public void setProgress(int p){} public void setOnSeekBarChangeListener(OnSeekBarChangeListener l){} }

@@ -18,6 +18,7 @@ import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.ScrollView;
+import android.widget.SeekBar;
 import android.widget.TextView;
 
 public class MainActivity extends Activity {
@@ -78,6 +79,23 @@ public class MainActivity extends Activity {
         row.addView(plus);
         root.addView(row);
         refreshN();
+
+        root.addView(label("경로 표시 투명도"));
+        final TextView opVal = new TextView(this);
+        opVal.setText(prefs.opacity() + "%  (낮을수록 투명)");
+        SeekBar sb = new SeekBar(this);
+        sb.setMax(80);
+        sb.setProgress(prefs.opacity() - 20);
+        sb.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            public void onProgressChanged(SeekBar b, int pr, boolean user) {
+                prefs.setOpacity(pr + 20);
+                opVal.setText((pr + 20) + "%  (낮을수록 투명)");
+            }
+            public void onStartTrackingTouch(SeekBar b) { }
+            public void onStopTrackingTouch(SeekBar b) { }
+        });
+        root.addView(opVal);
+        root.addView(sb);
 
         root.addView(label("덱 색 (아무것도 안 고르면 전부 같은 가치)"));
         String[] names = {"빨강", "파랑", "초록", "노랑", "보라"};

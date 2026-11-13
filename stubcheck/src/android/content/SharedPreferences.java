@@ -1,2 +1,2 @@
 package android.content;
-public interface SharedPreferences { int getInt(String k,int d); boolean getBoolean(String k,boolean d); Editor edit(); interface Editor { Editor putInt(String k,int v); Editor putBoolean(String k,boolean v); void apply(); } }
+public interface SharedPreferences { int getInt(String k,int d); boolean getBoolean(String k,boolean d); Editor edit(); void registerOnSharedPreferenceChangeListener(OnSharedPreferenceChangeListener l); void unregisterOnSharedPreferenceChangeListener(OnSharedPreferenceChangeListener l); interface OnSharedPreferenceChangeListener { void onSharedPreferenceChanged(SharedPreferences sp,String key); } interface Editor { Editor putInt(String k,int v); Editor putBoolean(String k,boolean v); void apply(); } }
