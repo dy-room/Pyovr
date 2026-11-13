@@ -1,0 +1,2 @@
+package android.app;
+public class Activity extends android.content.ContextWrapper { public static final int RESULT_OK=-1; protected void onCreate(android.os.Bundle b) {} protected void onResume() {} public void setContentView(android.view.View v) {} public void startActivityForResult(android.content.Intent i,int r) {} public void requestPermissions(String[] p,int r) {} public void onRequestPermissionsResult(int r,String[] p,int[] g) {} protected void onActivityResult(int r,int c,android.content.Intent d) {} }

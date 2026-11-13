@@ -1,0 +1,3 @@
+package android.view;
+public interface WindowManager { void addView(View v,ViewGroup.LayoutParams p); void updateViewLayout(View v,ViewGroup.LayoutParams p); void removeView(View v); Display getDefaultDisplay(); WindowMetrics getMaximumWindowMetrics();
+ class LayoutParams extends ViewGroup.LayoutParams { public static final int MATCH_PARENT=-1,WRAP_CONTENT=-2,TYPE_APPLICATION_OVERLAY=2038,TYPE_PHONE=2002,FLAG_NOT_FOCUSABLE=8,FLAG_NOT_TOUCHABLE=16,FLAG_LAYOUT_IN_SCREEN=256,FLAG_LAYOUT_NO_LIMITS=512,LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES=1; public int gravity,x,y,layoutInDisplayCutoutMode; public LayoutParams(int w,int h,int t,int f,int fmt){super(w,h);} public LayoutParams(int w,int h,int t,int f,int fmt,int z){super(w,h);} } }

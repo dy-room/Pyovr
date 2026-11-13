@@ -9,6 +9,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -134,11 +135,14 @@ public final class Planner {
         double oScore;
         long oKey;
         int oC1, oC2;
-        final int[] cells = new int[12];
+        final int[] cells = new int[16];
         final int[] mark = new int[NC];
-        final int[][] bufs = new int[12][64];
+        final int[][] bufs = new int[16][64];
         int root;
         List<Item> top;
+        long deadline = Long.MAX_VALUE;      // System.nanoTime 기준
+        AtomicBoolean timedOut = new AtomicBoolean(false);
+        int tick;
 
         Searcher(Job j) {
             job = j;
@@ -350,6 +354,8 @@ public final class Planner {
         }
 
         void rec(int n, int[] ext, int extLen) {
+            if ((++tick & 1023) == 0 && System.nanoTime() > deadline) timedOut.set(true);
+            if (timedOut.get()) return;
             consider(n);
             if (n >= limit) return;
             int[] next = bufs[n];
@@ -394,12 +400,51 @@ public final class Planner {
         return new Searcher(job).searchRoot(root);
     }
 
+    /** 시간 제한 탐색 결과 */
+    public static final class Plan {
+        public List<Item> items;
+        public int doneLimit;      // 끝까지 탐색 완료한 최대 칸 수
+        public boolean cut;        // 시간 제한으로 요청한 칸 수까지 못 갔는지
+    }
+
+    /**
+     * 칸 수를 6부터 차례로 늘려 가며 탐색하고, 시간 예산이 끝나면 마지막으로 끝까지 마친 단계의 결과를 돌려준다.
+     * (칸 수가 크면 후보가 폭발적으로 늘어 몇 초 안에 못 끝날 수 있음)
+     */
+    public static Plan planBudget(Job job, int n, int threads, long budgetMs) {
+        final int want = job.limit;
+        long deadline = System.nanoTime() + budgetMs * 1000000L;
+        Plan out = new Plan();
+        for (int l = Math.min(want, 6); l <= want; l++) {
+            job.limit = l;
+            AtomicBoolean to = new AtomicBoolean(false);
+            List<Item> r = planImpl(job, n, threads, deadline, to);
+            if (to.get()) { out.cut = true; break; }
+            out.items = r;
+            out.doneLimit = l;
+        }
+        job.limit = want;
+        if (out.items == null) {   // 6칸조차 못 끝낸 극단적인 경우
+            job.limit = Math.min(want, 4);
+            out.items = planImpl(job, n, threads, Long.MAX_VALUE, new AtomicBoolean(false));
+            out.doneLimit = job.limit;
+            job.limit = want;
+        }
+        return out;
+    }
+
     /** 전체 탐색 후 상위 n 개 (점수 ↓, 칸 수 ↑, 마스크 ↑) */
     public static List<Item> plan(final Job job, int n, int threads) {
+        return planImpl(job, n, threads, Long.MAX_VALUE, new AtomicBoolean(false));
+    }
+
+    static List<Item> planImpl(final Job job, int n, int threads, final long deadline, final AtomicBoolean timedOut) {
         final List<Item> all = Collections.synchronizedList(new ArrayList<Item>());
         if (threads <= 1) {
             Searcher s = new Searcher(job);
-            for (int r = 0; r < NC; r++) all.addAll(s.searchRoot(r));
+            s.deadline = deadline;
+            s.timedOut = timedOut;
+            for (int r = 0; r < NC && !timedOut.get(); r++) all.addAll(s.searchRoot(r));
         } else {
             ExecutorService ex = Executors.newFixedThreadPool(threads);
             final AtomicInteger next = new AtomicInteger(0);
@@ -409,8 +454,10 @@ public final class Planner {
                     @Override
                     public Void call() {
                         Searcher s = new Searcher(job);
+                        s.deadline = deadline;
+                        s.timedOut = timedOut;
                         int r;
-                        while ((r = next.getAndIncrement()) < NC) all.addAll(s.searchRoot(r));
+                        while (!timedOut.get() && (r = next.getAndIncrement()) < NC) all.addAll(s.searchRoot(r));
                         return null;
                     }
                 }));

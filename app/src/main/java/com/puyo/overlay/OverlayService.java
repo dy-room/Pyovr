@@ -71,6 +71,10 @@ public class OverlayService extends Service {
     private String lastHead = "";
     private String lastSig = "";
     private String pendingSig = "";
+    private Reader.Board lastBoard;
+    private List<int[]> lastChance;
+    private int lastNRead;
+    private TextView nLabel;
 
     @Override
     public IBinder onBind(Intent i) { return null; }
@@ -106,6 +110,7 @@ public class OverlayService extends Service {
         }
         running = true;
         refreshModeLabel();
+        refreshN();
         if (prefs.mode() == Prefs.MODE_AUTO) ui.postDelayed(autoTick, 1500);
         return START_NOT_STICKY;
     }
@@ -239,6 +244,7 @@ public class OverlayService extends Service {
         } finally {
             im.close();
         }
+        ui.post(new Runnable() { public void run() { setOverlayVisible(true); } });   // 캡처가 끝났으니 계산 중에는 다시 보이게
         // 오버레이는 곧 다시 보이게 하되, 자동 모드에서는 바뀐 게 없으면 다시 그리지 않음
         StringBuilder sg = new StringBuilder();
         for (char[] r : board.grid) sg.append(r);
@@ -257,24 +263,36 @@ public class OverlayService extends Service {
         for (char[] r : board.grid) for (char c : r) if (c != '.') empty = false;
         if (empty) {
             results = null;
+            lastBoard = null;
             ui.post(new Runnable() { public void run() { pathView.clear(); } });
             return;
         }
-        int n = (prefs.autoN() && nRead > 0) ? nRead : prefs.manualN();
-        n = Math.max(1, Math.min(10, n));
+        lastBoard = board;
+        lastChance = chance;
+        lastNRead = nRead;
+        replan();
+    }
+
+    /** 마지막으로 읽은 보드를 현재 설정(칸 수 등)으로 다시 계산 (작업 스레드). */
+    private void replan() {
+        Reader.Board board = lastBoard;
+        if (board == null) return;
+        int n = (prefs.autoN() && lastNRead > 0) ? lastNRead : prefs.manualN();
+        n = Math.max(1, Math.min(Prefs.MAX_N, n));
         double[] w = new double[5];
         int deck = prefs.deck();
         for (int i = 0; i < 5; i++) w[i] = (deck == 0 || (deck & (1 << i)) != 0) ? prefs.mainW() : prefs.otherW();
         double prismW = prefs.mainW() * 2;
-        Planner.Job job = Planner.buildJob(board.grid, board.preview, w, 0, prismW, 30, n, false, chance);
+        Planner.Job job = Planner.buildJob(board.grid, board.preview, w, 0, prismW, 30, n, false, lastChance);
         int th = Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors()));
         long t0 = System.currentTimeMillis();
-        List<Planner.Item> top = Planner.plan(job, 3, th);
+        Planner.Plan pl = Planner.planBudget(job, 3, th, 6000);
         long dt = System.currentTimeMillis() - t0;
-        results = top;
+        results = pl.items;
         shown = 0;
         lastGeom = board.geom;
-        lastHead = "N=" + n + (prefs.autoN() && nRead > 0 ? "(인식)" : "") + " · " + dt + "ms";
+        lastHead = "N=" + n + (prefs.autoN() && lastNRead > 0 ? "(인식)" : "")
+                + (pl.cut ? " ⚠시간제한: " + pl.doneLimit + "칸까지만 탐색" : " · " + dt + "ms");
         postShow();
     }
 
@@ -313,16 +331,25 @@ public class OverlayService extends Service {
         panel.setPadding((int) (4 * d), (int) (2 * d), (int) (4 * d), (int) (2 * d));
 
         TextView grip = mkBtn("⠿");
+        TextView btnMinus = mkBtn("−");
+        nLabel = mkBtn("");
+        nLabel.setMinWidth((int) (28 * d));
+        TextView btnPlus = mkBtn("＋");
         btnAnalyze = mkBtn("분석");
         btnNext = mkBtn("다음안");
         btnMode = mkBtn("");
         TextView btnClose = mkBtn("✕");
         panel.addView(grip);
+        panel.addView(btnMinus);
+        panel.addView(nLabel);
+        panel.addView(btnPlus);
         panel.addView(btnAnalyze);
         panel.addView(btnNext);
         panel.addView(btnMode);
         panel.addView(btnClose);
 
+        btnMinus.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { changeN(-1); } });
+        btnPlus.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { changeN(1); } });
         btnAnalyze.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { analyze(false); } });
         btnNext.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
@@ -369,6 +396,25 @@ public class OverlayService extends Service {
         });
     }
 
+    /** 한 번에 훑을 칸 수 ±1 (1~15). 직접 조절하면 のこり 자동 인식은 끈다. */
+    private void changeN(int d) {
+        int cur = prefs.manualN();
+        if (prefs.autoN() && lastNRead > 0) cur = lastNRead;
+        prefs.setAutoN(false);
+        prefs.setManualN(cur + d);
+        refreshN();
+        if (lastBoard != null && !busy) {
+            busy = true;
+            work.post(new Runnable() {
+                public void run() {
+                    try { replan(); } catch (Throwable t) { toast("계산 오류: " + t); } finally { busy = false; }
+                }
+            });
+        }
+    }
+
+    private void refreshN() { nLabel.setText(String.valueOf(prefs.manualN())); }
+
     private TextView mkBtn(String s) {
         float d = getResources().getDisplayMetrics().density;
         TextView t = new TextView(this);
@@ -376,7 +422,7 @@ public class OverlayService extends Service {
         t.setTextColor(Color.WHITE);
         t.setTextSize(14);
         t.setGravity(Gravity.CENTER);
-        t.setPadding((int) (10 * d), (int) (8 * d), (int) (10 * d), (int) (8 * d));
+        t.setPadding((int) (8 * d), (int) (8 * d), (int) (8 * d), (int) (8 * d));
         return t;
     }
 

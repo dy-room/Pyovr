@@ -1,0 +1,2 @@
+package android.content;
+public class Intent implements android.os.Parcelable_ { public Intent(){} public Intent(Context c,Class<?> k){} public Intent(String a,android.net.Uri u){} public Intent setAction(String a) { throw null; } public String getAction() { throw null; } public Intent putExtra(String k,int v) { throw null; } public Intent putExtra(String k,android.os.Parcelable_ v) { throw null; } public int getIntExtra(String k,int d) { throw null; } public <T extends android.os.Parcelable_> T getParcelableExtra(String k) { throw null; } }

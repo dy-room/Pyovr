@@ -1,0 +1,2 @@
+package android.app;
+public class Notification { public static class Builder { public Builder(android.content.Context c){} public Builder(android.content.Context c,String ch){} public Builder setContentTitle(CharSequence s) { throw null; } public Builder setContentText(CharSequence s) { throw null; } public Builder setSmallIcon(int i) { throw null; } public Builder setOngoing(boolean b) { throw null; } public Notification build() { throw null; } } }

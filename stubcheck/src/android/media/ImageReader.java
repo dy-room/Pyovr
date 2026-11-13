@@ -1,0 +1,2 @@
+package android.media;
+public class ImageReader implements AutoCloseable { public interface OnImageAvailableListener { void onImageAvailable(ImageReader r); } public static ImageReader newInstance(int w,int h,int f,int m) { throw null; } public void setOnImageAvailableListener(OnImageAvailableListener l,android.os.Handler h) {} public android.view.Surface getSurface() { throw null; } public Image acquireLatestImage() { throw null; } public void close() {} }

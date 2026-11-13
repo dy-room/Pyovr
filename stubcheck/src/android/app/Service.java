@@ -1,0 +1,2 @@
+package android.app;
+public abstract class Service extends android.content.ContextWrapper { public static final int START_NOT_STICKY=2; public abstract android.os.IBinder onBind(android.content.Intent i); public int onStartCommand(android.content.Intent i,int f,int s) { throw null; } public void onDestroy() {} public final void stopSelf() {} public final void startForeground(int id,Notification n) {} public final void startForeground(int id,Notification n,int t) {} }
