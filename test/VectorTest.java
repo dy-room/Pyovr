@@ -26,7 +26,7 @@ public class VectorTest {
                 double[] wt = new double[5]; for (int i = 0; i < 5; i++) wt[i] = Double.parseDouble(w[i]);
                 char[] pv = f[2].toCharArray();
                 job = Planner.buildJob(grid(f[1]), pv, wt, Double.parseDouble(f[4]), Double.parseDouble(f[5]), Double.parseDouble(f[6]),
-                        Integer.parseInt(f[7]), f[8].equals("1"), parseChance(f[9]));
+                        Integer.parseInt(f[7]), f[8].equals("1"), parseChance(f[9]), Double.parseDouble(f[10]), f[11].equals("1"));
                 exp.clear();
             } else if (f[0].equals("T")) exp.add(ln);
             else if (f[0].equals("E")) {

@@ -37,8 +37,8 @@ final class PathView extends View {
         txt.setColor(0xFFFFFFFF);
         txt.setTextAlign(Paint.Align.CENTER);
         txt.setFakeBoldText(true);
-        bg.setColor(0xCC000000);
-        infoPaint.setColor(0xFFFFFFFF);
+        bg.setColor(0x70000000);
+        infoPaint.setColor(0xE6FFFFFF);
         infoPaint.setTextSize(15 * d);
         infoPaint.setFakeBoldText(true);
     }
@@ -61,7 +61,8 @@ final class PathView extends View {
         if (!info.isEmpty()) {
             float pad = 8 * getResources().getDisplayMetrics().density;
             float tw = infoPaint.measureText(info);
-            float y = geom != null ? (float) (geom.yp - geom.ch * 0.9) : 120;
+            // 캐릭터 아이콘 줄(기준 y≈1155/2340) 바로 위
+            float y = geom != null ? (float) (1128 * geom.sy) : 120;
             float x = 12 * getResources().getDisplayMetrics().density;
             cv.drawRect(x - pad, y - infoPaint.getTextSize() - pad * 0.5f, x + tw + pad, y + pad, bg);
             cv.drawText(info, x, y, infoPaint);

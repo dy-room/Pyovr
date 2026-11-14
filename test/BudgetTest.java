@@ -5,7 +5,7 @@ public class BudgetTest {
         for (int i = 0; i < 6; i++) for (int j = 0; j < 8; j++) g[i][j] = C.charAt(r.nextInt(5));
         char[] pv = "RBGYPRBG".toCharArray();
         for (int L : new int[]{1, 5, 8, 15}) {
-            Planner.Job j = Planner.buildJob(g, pv, new double[]{3, .4, .4, .4, .4}, 0, 6, 30, L, false, null);
+            Planner.Job j = Planner.buildJob(g, pv, new double[]{3, .4, .4, .4, .4}, 0, 6, 30, L, false, null, 1.0, true);
             long t = System.currentTimeMillis();
             Planner.Plan p = Planner.planBudget(j, 3, 4, 6000);
             System.out.println("L=" + L + " done=" + p.doneLimit + " cut=" + p.cut + " items=" + p.items.size() + " ms=" + (System.currentTimeMillis() - t));

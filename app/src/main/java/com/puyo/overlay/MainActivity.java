@@ -80,6 +80,22 @@ public class MainActivity extends Activity {
         root.addView(row);
         refreshN();
 
+        root.addView(label("계산 옵션"));
+        CheckBox pre = new CheckBox(this);
+        pre.setText("확정 연쇄 수 우선 (연쇄를 더 길게 만드는 수를 먼저)");
+        pre.setChecked(prefs.preFirst());
+        pre.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton v, boolean c) { prefs.setPreFirst(c); }
+        });
+        root.addView(pre);
+        CheckBox tr = new CheckBox(this);
+        tr.setText("훑은 뿌요도 점수에 포함 (덱 색을 훑으면 가산)");
+        tr.setChecked(prefs.traceScore());
+        tr.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton v, boolean c) { prefs.setTraceScore(c); }
+        });
+        root.addView(tr);
+
         root.addView(label("경로 표시 투명도"));
         final TextView opVal = new TextView(this);
         opVal.setText(prefs.opacity() + "%  (낮을수록 투명)");

@@ -75,6 +75,9 @@ public class OverlayService extends Service {
     private List<int[]> lastChance;
     private int lastNRead;
     private TextView nLabel;
+    private boolean collapsed;
+    private TextView btnEye;
+    private LinearLayout row1Ref, row2Ref;
     private android.content.SharedPreferences.OnSharedPreferenceChangeListener prefListener;
 
     @Override
@@ -202,7 +205,7 @@ public class OverlayService extends Service {
         public void run() {
             if (!running) return;
             if (prefs.mode() == Prefs.MODE_AUTO) {
-                analyze(true);
+                if (!collapsed) analyze(true);
                 ui.postDelayed(this, AUTO_PERIOD_MS);
             }
         }
@@ -284,7 +287,7 @@ public class OverlayService extends Service {
         int deck = prefs.deck();
         for (int i = 0; i < 5; i++) w[i] = (deck == 0 || (deck & (1 << i)) != 0) ? prefs.mainW() : prefs.otherW();
         double prismW = prefs.mainW() * 2;
-        Planner.Job job = Planner.buildJob(board.grid, board.preview, w, 0, prismW, 30, n, false, lastChance);
+        Planner.Job job = Planner.buildJob(board.grid, board.preview, w, 0, prismW, 30, n, prefs.preFirst(), lastChance, prefs.traceScore() ? 1.0 : 0.0, true);
         int th = Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors()));
         long t0 = System.currentTimeMillis();
         Planner.Plan pl = Planner.planBudget(job, 3, th, 6000);
@@ -331,7 +334,7 @@ public class OverlayService extends Service {
         row2.setOrientation(LinearLayout.HORIZONTAL);
         row2.setGravity(Gravity.CENTER);
         GradientDrawable bg = new GradientDrawable();
-        bg.setColor(0xDD202124);
+        bg.setColor(0xB0202124);
         bg.setCornerRadius(18 * d);
         panel.setBackground(bg);
         prefListener = new android.content.SharedPreferences.OnSharedPreferenceChangeListener() {
@@ -341,6 +344,7 @@ public class OverlayService extends Service {
         panel.setPadding((int) (4 * d), (int) (2 * d), (int) (4 * d), (int) (2 * d));
 
         TextView grip = mkBtn("⠿");
+        btnEye = mkBtn("👁");
         TextView btnMinus = mkBtn("−");
         nLabel = mkBtn("");
         nLabel.setMinWidth((int) (28 * d));
@@ -350,6 +354,7 @@ public class OverlayService extends Service {
         btnMode = mkBtn("");
         TextView btnClose = mkBtn("✕");
         row1.addView(grip);
+        row1.addView(btnEye);
         row1.addView(btnMinus);
         row1.addView(nLabel);
         row1.addView(btnPlus);
@@ -357,10 +362,13 @@ public class OverlayService extends Service {
         row1.addView(btnNext);
         row1.addView(btnMode);
         row1.addView(btnClose);
+        row1Ref = row1;
+        row2Ref = row2;
         panel.addView(row1);
         buildDeckChips(row2);
         panel.addView(row2);
 
+        btnEye.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { setCollapsed(!collapsed); } });
         btnMinus.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { changeN(-1); } });
         btnPlus.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { changeN(1); } });
         btnAnalyze.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { analyze(false); } });
@@ -487,9 +495,21 @@ public class OverlayService extends Service {
         btnAnalyze.setAlpha(prefs.mode() == Prefs.MODE_AUTO ? 0.5f : 1f);
     }
 
+    /** 눈 버튼: 경로·설명·버튼을 접고 눈/이동 핸들만 남김 (다시 누르면 펼침) */
+    private void setCollapsed(boolean c) {
+        collapsed = c;
+        for (int i = 0; i < row1Ref.getChildCount(); i++) {
+            View ch = row1Ref.getChildAt(i);
+            if (i > 1) ch.setVisibility(c ? View.GONE : View.VISIBLE);   // 0=핸들, 1=눈
+        }
+        row2Ref.setVisibility(c ? View.GONE : View.VISIBLE);
+        btnEye.setAlpha(c ? 0.6f : 1f);
+        if (pathView != null) pathView.setVisibility(c ? View.INVISIBLE : View.VISIBLE);
+    }
+
     private void setOverlayVisible(boolean v) {
         int vis = v ? View.VISIBLE : View.INVISIBLE;
-        if (pathView != null) pathView.setVisibility(vis);
+        if (pathView != null) pathView.setVisibility(collapsed ? View.INVISIBLE : vis);
         if (panel != null) panel.setVisibility(vis);
     }
 

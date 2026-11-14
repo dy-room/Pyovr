@@ -59,13 +59,15 @@ public final class Planner {
         public double[] deckW = new double[16];
         public double[] mult = DEFAULT_CHAIN_MULT;
         public double healW, potW = DEFAULT_POT_W, chanceW, prismW;
+        public double traceW;       // 훑은 뿌요 자체의 점수 배율 (0 = 무시)
+        public boolean dedupe;      // 낙하 후 판이 같은(=결과가 같은) 수는 하나만
         public int limit = 5, topK = 8;
         public boolean preFirst;
     }
 
     /** 후보 하나 */
     public static final class Item {
-        public long key, mask;
+        public long key, mask, sig;
         public int pc, pre, post;
         public double score;
         public int[] cells, path;
@@ -124,7 +126,8 @@ public final class Planner {
         final byte[] board;
         final int[] preview;
         final double[] deckW, mult;
-        final double healW, potW, chanceW, prismW;
+        final double healW, potW, chanceW, prismW, traceW;
+        final boolean dedupe;
         final int limit, K, mlen;
         final byte[] b = new byte[NC];
         final boolean[] seen = new boolean[NC], erase = new boolean[NC], eraseX = new boolean[NC];
@@ -154,6 +157,8 @@ public final class Planner {
             potW = j.potW;
             chanceW = j.chanceW;
             prismW = j.prismW;
+            traceW = j.traceW;
+            dedupe = j.dedupe;
             limit = j.limit;
             K = j.topK > 0 ? j.topK : 8;
             mlen = mult.length;
@@ -292,13 +297,16 @@ public final class Planner {
         void evalNormal(int n) {
             System.arraycopy(board, 0, b, 0, NC);
             int heal = 0;
+            double tg = 0.0;
             for (int q = 0; q < n; q++) {
-                int ci = cells[q];
-                if ((b[ci] & 15) == 6) heal++;
+                int ci = cells[q], cv = b[ci] & 15;
+                if (cv == 6) heal++;
+                else if (cv >= 1 && cv <= 5) tg += deckW[cv];
+                else if (cv == 8) tg += prismW;
                 b[ci] = 0;
             }
             gravity();
-            runChain(0, 0.0);
+            runChain(0, tg * traceW);
             double total = rTotal;
             int steps1 = rSteps;
             for (int c = 0; c < COLS; c++) {
@@ -330,6 +338,26 @@ public final class Planner {
             return maskOf(cells, n) < w.mask;
         }
 
+        /** 훑은 뒤 낙하까지 끝난 판의 지문: 같으면 이후 결과(연쇄·점수)가 완전히 같다 */
+        long sigOf(int n) {
+            System.arraycopy(board, 0, b, 0, NC);
+            int heal = 0;
+            for (int q = 0; q < n; q++) {
+                int ci = cells[q];
+                if ((b[ci] & 15) == 6) heal++;
+                b[ci] = 0;
+            }
+            gravity();
+            long h = 0xcbf29ce484222325L;
+            for (int i = 0; i < NC; i++) {
+                h ^= (b[i] & 0xff);
+                h *= 0x100000001b3L;
+            }
+            h ^= heal;
+            h *= 0x100000001b3L;
+            return h;
+        }
+
         void consider(int n) {
             evalNormal(n);
             int tl = top.size();
@@ -338,6 +366,7 @@ public final class Planner {
             int[] path = findPath(cl);
             if (path == null) return;
             Item item = new Item();
+            item.sig = dedupe ? sigOf(n) : 0;
             item.key = oKey;
             item.pc = n;
             item.mask = maskOf(cells, n);
@@ -347,6 +376,15 @@ public final class Planner {
             item.path = path;
             item.pre = oC1;
             item.post = oC2;
+            if (dedupe) {
+                for (int d = 0; d < top.size(); d++) {
+                    if (top.get(d).sig != item.sig) continue;
+                    if (ORDER.compare(item, top.get(d)) >= 0) return;
+                    top.remove(d);
+                    break;
+                }
+                tl = top.size();
+            }
             int p = tl;
             while (p > 0 && ORDER.compare(item, top.get(p - 1)) < 0) p--;
             top.add(p, item);
@@ -472,6 +510,12 @@ public final class Planner {
         }
         List<Item> copy = new ArrayList<>(all);
         Collections.sort(copy, ORDER);
+        if (job.dedupe) {
+            java.util.HashSet<Long> seenSig = new java.util.HashSet<>();
+            List<Item> out = new ArrayList<>();
+            for (Item it : copy) if (seenSig.add(it.sig)) out.add(it);
+            copy = out;
+        }
         return copy.size() > n ? new ArrayList<>(copy.subList(0, n)) : copy;
     }
 
@@ -493,7 +537,8 @@ public final class Planner {
 
     /** weights: R,B,G,Y,P 순서 5개. chance: [행,열] 목록(없으면 null) */
     public static Job buildJob(char[][] grid, char[] preview, double[] weights, double heal, double prismW,
-                               double chanceW, int limit, boolean preFirst, List<int[]> chance) {
+                               double chanceW, int limit, boolean preFirst, List<int[]> chance,
+                               double traceW, boolean dedupe) {
         Job j = new Job();
         for (int r = 0; r < ROWS; r++) for (int c = 0; c < COLS; c++) j.board[r * COLS + c] = (byte) code(grid[r][c]);
         for (int c = 0; c < COLS; c++) {
@@ -512,6 +557,8 @@ public final class Planner {
         j.chanceW = chanceW;
         j.limit = limit;
         j.preFirst = preFirst;
+        j.traceW = traceW;
+        j.dedupe = dedupe;
         return j;
     }
 }

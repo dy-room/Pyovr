@@ -29,6 +29,14 @@ final class Prefs {
     int opacity() { return sp.getInt("opacity", 65); }
     void setOpacity(int v) { sp.edit().putInt("opacity", Math.max(20, Math.min(100, v))).apply(); }
 
+    /** 확정 연쇄 수 우선 */
+    boolean preFirst() { return sp.getBoolean("preFirst", false); }
+    void setPreFirst(boolean v) { sp.edit().putBoolean("preFirst", v).apply(); }
+
+    /** 훑은 뿌요 자체도 점수에 포함 (같은 색을 훑으면 그 색 가치만큼 점수) */
+    boolean traceScore() { return sp.getBoolean("traceScore", true); }
+    void setTraceScore(boolean v) { sp.edit().putBoolean("traceScore", v).apply(); }
+
     float mainW() { return 3f; }
     float otherW() { return 0.4f; }
 }
