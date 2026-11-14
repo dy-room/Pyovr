@@ -105,7 +105,7 @@ final class PathView extends View {
                 cv.drawRect(bx, by, bx + bs, by + bs, boxPaint);
                 char v = grid[r][c];
                 letterPaint.setColor(letterColor(v));
-                String t = v == '.' ? "·" : String.valueOf(v);
+                String t = v == '.' ? "·" : v == 'H' ? "♥" : v == 'X' ? "★" : v == 'O' ? "●" : String.valueOf(v);   // ★=프리즘, ♥=하트, ●=방해뿌요
                 cv.drawText(t, bx + bs / 2, by + bs / 2 + 8 * u, letterPaint);
                 if (chance != null) {
                     for (int[] p : chance) if (p[0] == r && p[1] == c) {
