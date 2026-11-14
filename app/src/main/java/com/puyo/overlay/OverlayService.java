@@ -77,6 +77,7 @@ public class OverlayService extends Service {
     private int lastNRead;
     private TextView nLabel;
     private boolean collapsed;
+    private boolean labelsOn;
     private TextView btnEye;
     private LinearLayout row1Ref, row2Ref;
     private android.content.SharedPreferences.OnSharedPreferenceChangeListener prefListener;
@@ -304,6 +305,9 @@ public class OverlayService extends Service {
         results = pl.items;
         shown = 0;
         lastGeom = board.geom;
+        final Reader.Board bd = board;
+        final List<int[]> ch = lastChance;
+        ui.post(new Runnable() { public void run() { pathView.setBoard(bd.geom, bd.grid, bd.preview, ch); } });
         lastHead = "N=" + n + (prefs.autoN() && lastNRead > 0 ? "(인식)" : "")
                 + (pl.cut ? " ⚠시간제한: " + pl.doneLimit + "칸까지만 탐색" : " · " + dt + "ms");
         postShow();
@@ -456,6 +460,18 @@ public class OverlayService extends Service {
             chips[i] = c;
             row.addView(c);
         }
+        TextView eyeLabels = mkBtn("인식");
+        eyeLabels.setTextSize(12);
+        eyeLabels.setAlpha(0.55f);
+        eyeLabels.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                labelsOn = !labelsOn;
+                v.setAlpha(labelsOn ? 1f : 0.55f);
+                ((TextView) v).setText(labelsOn ? "인식✔" : "인식");
+                pathView.setShowLabels(labelsOn);
+            }
+        });
+        row.addView(eyeLabels);
         refreshChips();
     }
 

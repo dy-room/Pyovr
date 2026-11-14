@@ -11,6 +11,13 @@ final class PathView extends View {
     private Planner.Item item;
     private Reader.Geom geom;
     private String info = "";
+    private char[][] grid;
+    private char[] preview;
+    private java.util.List<int[]> chance;
+    private boolean showLabels;
+    private final Paint cellPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint boxPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint letterPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint ring = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint dot = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -50,6 +57,74 @@ final class PathView extends View {
         postInvalidate();
     }
 
+    /** 마지막으로 인식한 보드 (인식값 표시용) */
+    void setBoard(Reader.Geom g, char[][] gr, char[] pv, java.util.List<int[]> ch) {
+        geom = g;
+        grid = gr;
+        preview = pv;
+        chance = ch;
+        postInvalidate();
+    }
+
+    void setShowLabels(boolean v) {
+        showLabels = v;
+        postInvalidate();
+    }
+
+    private static int letterColor(char c) {
+        switch (c) {
+            case 'R': return 0xFFFF5252;
+            case 'B': return 0xFF64B5F6;
+            case 'G': return 0xFF66BB6A;
+            case 'Y': return 0xFFFFD740;
+            case 'P': return 0xFFB388FF;
+            case 'H': return 0xFFFF80AB;
+            case 'X': return 0xFFFFFFFF;
+            case 'O': return 0xFFBDBDBD;
+            default: return 0xFFFFFFFF;
+        }
+    }
+
+    private void drawLabels(Canvas cv) {
+        if (!showLabels || grid == null || geom == null) return;
+        float u = (float) geom.sx;
+        cellPaint.setStyle(Paint.Style.STROKE);
+        cellPaint.setStrokeWidth(Math.max(1f, 1.5f * u));
+        cellPaint.setColor(0x66FFFFFF);
+        boxPaint.setStyle(Paint.Style.FILL);
+        boxPaint.setColor(0xB00A0C1C);
+        letterPaint.setTextAlign(Paint.Align.CENTER);
+        letterPaint.setFakeBoldText(true);
+        letterPaint.setTextSize(22 * u);
+        float cw = (float) geom.cw, chh = (float) geom.ch;
+        for (int r = 0; r < Reader.ROWS; r++) {
+            for (int c = 0; c < Reader.COLS; c++) {
+                float cx = (float) geom.xs[c], cy = (float) geom.ys[r];
+                cv.drawRect(cx - cw / 2, cy - chh / 2, cx + cw / 2, cy + chh / 2, cellPaint);
+                float bx = cx - cw / 2 + 4 * u, by = cy - chh / 2 + 4 * u, bs = 30 * u;
+                cv.drawRect(bx, by, bx + bs, by + bs, boxPaint);
+                char v = grid[r][c];
+                letterPaint.setColor(letterColor(v));
+                String t = v == '.' ? "·" : String.valueOf(v);
+                cv.drawText(t, bx + bs / 2, by + bs / 2 + 8 * u, letterPaint);
+                if (chance != null) {
+                    for (int[] p : chance) if (p[0] == r && p[1] == c) {
+                        letterPaint.setColor(0xFFFFFFFF);
+                        cv.drawText("✦", cx + cw / 2 - 20 * u, cy - chh / 2 + 28 * u, letterPaint);
+                    }
+                }
+            }
+        }
+        if (preview != null) {
+            for (int c = 0; c < Reader.COLS; c++) {
+                float cx = (float) geom.xs[c], cy = (float) geom.yp;
+                cv.drawCircle(cx, cy, 17 * u, cellPaint);
+                letterPaint.setColor(letterColor(preview[c]));
+                cv.drawText(String.valueOf(preview[c] == '.' ? '·' : preview[c]), cx, cy + 8 * u, letterPaint);
+            }
+        }
+    }
+
     void clear() {
         item = null;
         info = "";
@@ -58,6 +133,7 @@ final class PathView extends View {
 
     @Override
     protected void onDraw(Canvas cv) {
+        drawLabels(cv);
         if (!info.isEmpty()) {
             float pad = 8 * getResources().getDisplayMetrics().density;
             float tw = infoPaint.measureText(info);
