@@ -61,8 +61,9 @@ public class OverlayService extends Service {
     private Prefs prefs;
     private Map<String, boolean[]> tpl;
 
-    private volatile boolean wantFrame;
     private final Object frameLock = new Object();
+    private Image latest;
+    private long frameSeq;
     private volatile boolean busy;
 
     private List<Planner.Item> results;
@@ -157,15 +158,19 @@ public class OverlayService extends Service {
             sw = dm.widthPixels;
             sh = dm.heightPixels;
         }
-        reader = ImageReader.newInstance(sw, sh, PixelFormat.RGBA_8888, 2);
+        reader = ImageReader.newInstance(sw, sh, PixelFormat.RGBA_8888, 3);
         reader.setOnImageAvailableListener(new ImageReader.OnImageAvailableListener() {
             @Override
             public void onImageAvailable(ImageReader r) {
-                synchronized (frameLock) { frameLock.notifyAll(); }
-                if (!wantFrame) {   // 요청이 없으면 프레임을 바로 버려 큐가 막히지 않게 함
-                    Image im = null;
-                    try { im = r.acquireLatestImage(); } catch (Exception ignore) { }
-                    if (im != null) im.close();
+                // 항상 가장 최근 프레임 하나만 쥐고 있는다 (프레임 번호로 "숨긴 뒤의 프레임" 을 구분)
+                Image im = null;
+                try { im = r.acquireLatestImage(); } catch (Exception ignore) { }
+                if (im == null) return;
+                synchronized (frameLock) {
+                    if (latest != null) latest.close();
+                    latest = im;
+                    frameSeq++;
+                    frameLock.notifyAll();
                 }
             }
         }, work);
@@ -173,25 +178,29 @@ public class OverlayService extends Service {
                 DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, reader.getSurface(), null, null);
     }
 
-    /** 오버레이를 숨긴 뒤 새 프레임 한 장을 받는다 (작업 스레드에서 호출). */
+    /**
+     * 오버레이를 숨긴 뒤에 만들어진 프레임을 돌려준다 (작업 스레드에서 호출).
+     * 숨김이 화면에 반영되기 전의 프레임(경로 원이 찍힌 화면)을 읽으면 그 칸을 잘못 인식하므로,
+     * 숨김 처리가 끝난 시점 이후에 도착한 프레임만 쓴다.
+     */
     private Image grabClean() {
-        wantFrame = true;
+        final java.util.concurrent.CountDownLatch hidden = new java.util.concurrent.CountDownLatch(1);
+        ui.post(new Runnable() { public void run() { setOverlayVisible(false); hidden.countDown(); } });
         try {
-            ui.post(new Runnable() { public void run() { setOverlayVisible(false); } });
-            Image im = null;
-            long end = System.currentTimeMillis() + 1200;
-            // 숨김이 화면에 반영된 뒤의 프레임을 쓰기 위해 먼저 잠깐 기다린 다음 가장 최근 프레임 사용
-            sleep(180);
-            while (System.currentTimeMillis() < end) {
-                try { im = reader.acquireLatestImage(); } catch (Exception e) { im = null; }
-                if (im != null) return im;
-                synchronized (frameLock) {
-                    try { frameLock.wait(100); } catch (InterruptedException e) { return null; }
-                }
-            }
-            return null;
-        } finally {
-            wantFrame = false;
+            if (!hidden.await(1000, java.util.concurrent.TimeUnit.MILLISECONDS)) return null;
+        } catch (InterruptedException e) { return null; }
+        synchronized (frameLock) {
+            long seq0 = frameSeq;
+            long end = System.currentTimeMillis() + 700;
+            try {
+                // 숨김 반영 프레임이 오기를 기다림(1장), 이어서 한 장 더 오는지 잠깐 더 본다
+                while (frameSeq < seq0 + 1 && System.currentTimeMillis() < end) frameLock.wait(50);
+                long end2 = System.currentTimeMillis() + 250;
+                while (frameSeq < seq0 + 2 && System.currentTimeMillis() < end2) frameLock.wait(30);
+            } catch (InterruptedException e) { return null; }
+            Image im = latest;     // 호출한 쪽에서 닫는다
+            latest = null;
+            return im;
         }
     }
 
@@ -525,6 +534,7 @@ public class OverlayService extends Service {
         try { if (pathView != null) wm.removeView(pathView); } catch (Exception ignore) { }
         try { if (panel != null) wm.removeView(panel); } catch (Exception ignore) { }
         if (vdisplay != null) vdisplay.release();
+        synchronized (frameLock) { if (latest != null) { latest.close(); latest = null; } }
         if (reader != null) reader.close();
         if (projection != null) {
             try { projection.stop(); } catch (Exception ignore) { }
