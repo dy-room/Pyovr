@@ -34,7 +34,7 @@ final class Prefs {
     void setPreFirst(boolean v) { sp.edit().putBoolean("preFirst", v).apply(); }
 
     /** 훑은 뿌요 자체도 점수에 포함 (같은 색을 훑으면 그 색 가치만큼 점수) */
-    boolean traceScore() { return sp.getBoolean("traceScore", true); }
+    boolean traceScore() { return sp.getBoolean("traceScore", false); }
     void setTraceScore(boolean v) { sp.edit().putBoolean("traceScore", v).apply(); }
 
     float mainW() { return 3f; }

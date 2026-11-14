@@ -89,7 +89,7 @@ public class MainActivity extends Activity {
         });
         root.addView(pre);
         CheckBox tr = new CheckBox(this);
-        tr.setText("훑은 뿌요도 점수에 포함 (덱 색을 훑으면 가산)");
+        tr.setText("훑은 뿌요도 점수에 포함 (실험용, 게임 규칙과 다르면 끄기)");
         tr.setChecked(prefs.traceScore());
         tr.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             public void onCheckedChanged(CompoundButton v, boolean c) { prefs.setTraceScore(c); }
