@@ -24,13 +24,13 @@ for(let t=0;t<40;t++){
 fs.writeFileSync('planner_vectors.txt',out.join('\n')+'\n');
 const rv=[];
 const tpl=R.loadTemplates(T.digits);
-for(const f of ['real','real2','real3','real4']){
+for(const f of ['real','real2','real3','real4','newshot']){
   const j={w:1080,h:2340};
   const buf=fs.readFileSync('/home/claude/test/'+f+'.rgba');
   const w=j.w||j.width,h=j.h||j.height;
   const img={data:new Uint8ClampedArray(buf.buffer,buf.byteOffset,buf.length),width:w,height:h};
-  const b=R.readBoard(img,{});const ch=R.detectChancePuyos(img,b.grid,{});const n=R.readRemaining(img,tpl);
-  rv.push(['R','/home/claude/test/'+f+'.rgba',w,h,b.grid.map(r=>r.join('')).join(''),b.preview.join(''),ch.map(x=>x.join(',')).join(';')||'-',n.n].join(' '));
+  const ady=R.autoDy(img);const cal={dy:ady||0};const b=R.readBoard(img,cal);const ch=R.detectChancePuyos(img,b.grid,cal);const n=R.readRemaining(img,tpl);
+  rv.push(['R','/home/claude/test/'+f+'.rgba',w,h,b.grid.map(r=>r.join('')).join(''),b.preview.join(''),ch.map(x=>x.join(',')).join(';')||'-',n.n,ady===null?-9999:ady].join(' '));
 }
 fs.writeFileSync('reader_vectors.txt',rv.join('\n')+'\n');
 console.log(rv.join('\n'));

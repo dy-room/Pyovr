@@ -252,8 +252,9 @@ public class OverlayService extends Service {
             Image.Plane pl = im.getPlanes()[0];
             ByteBuffer buf = pl.getBuffer();
             PixelSource src = new BufferSource(buf, im.getWidth(), im.getHeight(), pl.getRowStride(), pl.getPixelStride());
-            board = Reader.readBoard(src, null);
-            chance = Reader.detectChancePuyos(src, board.grid, null);
+            Reader.Calib cal = Reader.autoCalib(src);   // 화면 상태에 따라 달라지는 보드 세로 위치
+            board = Reader.readBoard(src, cal);
+            chance = Reader.detectChancePuyos(src, board.grid, cal);
             nRead = Reader.readRemaining(src, tpl).n;
         } finally {
             im.close();

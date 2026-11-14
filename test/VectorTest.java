@@ -58,13 +58,15 @@ public class VectorTest {
                 public int height() { return h; }
                 public int rgb(int x, int y) { int o = (y * w + x) * 4; return ((buf[o] & 255) << 16) | ((buf[o + 1] & 255) << 8) | (buf[o + 2] & 255); }
             };
-            Reader.Board b = Reader.readBoard(src, null);
+            Reader.Calib cal = Reader.autoCalib(src);
+            int ady = Reader.autoDy(src);
+            Reader.Board b = Reader.readBoard(src, cal);
             StringBuilder gs = new StringBuilder(); for (char[] r : b.grid) gs.append(r);
-            List<int[]> ch = Reader.detectChancePuyos(src, b.grid, null);
+            List<int[]> ch = Reader.detectChancePuyos(src, b.grid, cal);
             StringBuilder cs = new StringBuilder(); for (int[] x : ch) { if (cs.length() > 0) cs.append(';'); cs.append(x[0]).append(',').append(x[1]); }
             if (cs.length() == 0) cs.append('-');
             Reader.Digit d = Reader.readRemaining(src, tpl);
-            boolean ok = gs.toString().equals(f[4]) && new String(b.preview).equals(f[5]) && cs.toString().equals(f[6]) && d.n == Integer.parseInt(f[7]);
+            boolean ok = gs.toString().equals(f[4]) && new String(b.preview).equals(f[5]) && cs.toString().equals(f[6]) && d.n == Integer.parseInt(f[7]) && (ady == Integer.MIN_VALUE ? -9999 : ady) == Integer.parseInt(f[8]);
             System.out.println(f[1] + " " + (ok ? "OK" : "FAIL " + gs + " " + new String(b.preview) + " " + cs + " " + d.n));
             if (!ok) rbad++;
         }

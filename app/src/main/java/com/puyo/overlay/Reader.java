@@ -192,6 +192,57 @@ public final class Reader {
         return g;
     }
 
+    /**
+     * 보드 세로 위치 자동 보정 (화면 상태에 따라 보드가 위아래로 달라짐).
+     * 예고 구슬 줄(주변이 무채색 배경인 채도 높은 작은 원 8개)을 찾아 기준과의 차이(dy, 기준 해상도 px)를 돌려준다.
+     * 못 찾으면 Integer.MIN_VALUE.
+     */
+    public static int autoDy(PixelSource img) {
+        double sx = (double) img.width() / BASE_W, sy = (double) img.height() / BASE_H;
+        double[] xs = new double[COLS];
+        for (int c = 0; c < COLS; c++) xs[c] = (X_FIRST + c * CELL_W) * sx;
+        double[][] ring = new double[16][2];
+        for (int k = 0; k < 16; k++) { ring[k][0] = Math.cos(k * Math.PI / 8); ring[k][1] = Math.sin(k * Math.PI / 8); }
+        int best = -1;
+        List<Double> bestYs = new ArrayList<>();
+        double yMin = (Y_PREVIEW - 230) * sy, yMax = (Y_PREVIEW + 330) * sy;
+        for (double y = yMin; y <= yMax; y += 2 * sy) {
+            int score = 0;
+            for (int c = 0; c < COLS; c++) {
+                int inside = 0, nIn = 0, outside = 0, nOut = 0;
+                for (int i = 0; i < 16; i++) {
+                    int[] p = sv(img, xs[c] + ring[i][0] * 9 * sx, y + ring[i][1] * 9 * sy);
+                    if (p != null) { nIn++; if (p[0] > 110 && p[1] > 90) inside++; }
+                    p = sv(img, xs[c] + ring[i][0] * 30 * sx, y + ring[i][1] * 30 * sy);
+                    if (p != null) { nOut++; if (p[0] < 75) outside++; }
+                }
+                if (nIn > 0 && nOut > 0 && (double) inside / nIn >= 0.85 && (double) outside / nOut >= 0.6) score++;
+            }
+            if (score > best) { best = score; bestYs.clear(); bestYs.add(y); }
+            else if (score == best) bestYs.add(y);
+        }
+        if (best < 5) return Integer.MIN_VALUE;
+        double ymid = bestYs.get(bestYs.size() / 2);
+        return (int) Math.round(ymid / sy - (Y_PREVIEW + 6));
+    }
+
+    private static int[] sv(PixelSource img, double fx, double fy) {
+        int x = (int) Math.round(fx), y = (int) Math.round(fy);
+        if (x < 0 || y < 0 || x >= img.width() || y >= img.height()) return null;
+        int c = img.rgb(x, y);
+        int r = (c >> 16) & 255, g = (c >> 8) & 255, b = c & 255;
+        int mx = Math.max(r, Math.max(g, b)), mn = Math.min(r, Math.min(g, b));
+        return new int[]{mx > 0 ? (int) Math.round(255.0 * (mx - mn) / mx) : 0, mx};
+    }
+
+    /** 자동 보정을 적용한 보정값 (못 찾으면 보정 없음) */
+    public static Calib autoCalib(PixelSource img) {
+        Calib c = new Calib();
+        int dy = autoDy(img);
+        if (dy != Integer.MIN_VALUE) c.dy = dy;
+        return c;
+    }
+
     public static Board readBoard(PixelSource img, Calib cal) {
         Geom g = geometry(img.width(), img.height(), cal);
         Board b = new Board();
