@@ -478,8 +478,7 @@ public class OverlayService extends Service {
 
     /** 덱 색 토글 (아무것도 안 고르면 전부 같은 가치). 바꾸면 마지막 보드를 다시 계산. */
     private void toggleDeck(int bit) {
-        int m = prefs.deck();
-        prefs.setDeck((m & bit) != 0 ? (m & ~bit) : (m | bit));
+        prefs.setDeck(prefs.deck() == bit ? 0 : bit);   // 한 가지만 선택, 같은 색을 다시 누르면 해제
         refreshChips();
         replanAsync();
     }

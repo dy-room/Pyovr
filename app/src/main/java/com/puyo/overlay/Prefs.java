@@ -22,7 +22,7 @@ final class Prefs {
     void setManualN(int n) { sp.edit().putInt("manualN", Math.max(1, Math.min(MAX_N, n))).apply(); }
 
     /** 덱 색 비트마스크 (R,B,G,Y,P = bit0..4). 0 이면 전부 주력 */
-    int deck() { return sp.getInt("deck", 0); }
+    int deck() { int m = sp.getInt("deck", 0); return m & -m; }   // 한 가지만 (예전 다중 선택 값은 가장 낮은 색 하나로)
     void setDeck(int m) { sp.edit().putInt("deck", m).apply(); }
 
     /** 경로 오버레이 불투명도 20~100 (%) */

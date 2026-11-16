@@ -113,18 +113,28 @@ public class MainActivity extends Activity {
         root.addView(opVal);
         root.addView(sb);
 
-        root.addView(label("덱 색 (아무것도 안 고르면 전부 같은 가치)"));
+        root.addView(label("덱 색 (한 가지만 선택, 안 고르면 전부 같은 가치)"));
         String[] names = {"빨강", "파랑", "초록", "노랑", "보라"};
         int[] cols = {0xFFD32F2F, 0xFF1976D2, 0xFF388E3C, 0xFFF9A825, 0xFF7B1FA2};
         LinearLayout deck = new LinearLayout(this);
+        final CheckBox[] cbs = new CheckBox[5];
         for (int i = 0; i < 5; i++) {
             final int bit = 1 << i;
+            final int idx = i;
             CheckBox cb = new CheckBox(this);
+            cbs[i] = cb;
             cb.setText(names[i]);
             cb.setTextColor(cols[i]);
             cb.setChecked((prefs.deck() & bit) != 0);
             cb.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-                public void onCheckedChanged(CompoundButton v, boolean c) { prefs.setDeck(c ? (prefs.deck() | bit) : (prefs.deck() & ~bit)); }
+                public void onCheckedChanged(CompoundButton v, boolean c) {
+                    if (c) {   // 한 가지만 선택
+                        prefs.setDeck(bit);
+                        for (int k = 0; k < 5; k++) if (k != idx && cbs[k] != null && cbs[k].isChecked()) cbs[k].setChecked(false);
+                    } else if (prefs.deck() == bit) {
+                        prefs.setDeck(0);
+                    }
+                }
             });
             deck.addView(cb);
         }
